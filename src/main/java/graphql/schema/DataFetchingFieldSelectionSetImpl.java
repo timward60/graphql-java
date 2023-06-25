@@ -90,6 +90,8 @@ public class DataFetchingFieldSelectionSetImpl implements DataFetchingFieldSelec
     private final Supplier<ExecutableNormalizedField> normalizedFieldSupplier;
 
     private volatile boolean computedValues;
+    private volatile boolean computedImmediateValues;
+
     // we have multiple entries in this map so that we can do glob matching in multiple ways
     // however it needs to be normalised back to a set of unique fields when give back out to
     // the caller.
@@ -109,7 +111,7 @@ public class DataFetchingFieldSelectionSetImpl implements DataFetchingFieldSelec
         if (fieldGlobPattern == null || fieldGlobPattern.isEmpty()) {
             return false;
         }
-        computeValuesLazily();
+        computeValuesLazily(false);
         fieldGlobPattern = removeLeadingSlash(fieldGlobPattern);
         PathMatcher globMatcher = globMatcher(fieldGlobPattern);
         for (String flattenedField : flattenedFieldsForGlobSearching) {
@@ -159,7 +161,7 @@ public class DataFetchingFieldSelectionSetImpl implements DataFetchingFieldSelec
         if (fieldGlobPattern == null || fieldGlobPattern.isEmpty()) {
             return emptyList();
         }
-        computeValuesLazily();
+        computeValuesLazily(false);
 
         List<String> targetNames = new ArrayList<>();
         for (String flattenedField : flattenedFieldsForGlobSearching) {
@@ -178,7 +180,7 @@ public class DataFetchingFieldSelectionSetImpl implements DataFetchingFieldSelec
 
     @Override
     public List<SelectedField> getFields() {
-        computeValuesLazily();
+        computeValuesLazily(false);
         return toSetSemanticsList(normalisedSelectionSetFields.values().stream()
                 .flatMap(Collection::stream));
     }
@@ -190,7 +192,7 @@ public class DataFetchingFieldSelectionSetImpl implements DataFetchingFieldSelec
 
     @Override
     public List<SelectedField> getImmediateFields() {
-        computeValuesLazily();
+        computeValuesLazily(true);
         return immediateFields;
     }
 
@@ -204,10 +206,15 @@ public class DataFetchingFieldSelectionSetImpl implements DataFetchingFieldSelec
         return getFields(fieldGlobPattern, fieldGlobPatterns).stream().collect(Collectors.groupingBy(SelectedField::getResultKey));
     }
 
-    private void computeValuesLazily() {
+    private void computeValuesLazily(boolean immediate) {
         if (computedValues) {
             return;
         }
+
+        if (computedImmediateValues && immediate) {
+            return;
+        }
+
         // this supplier is a once only thread synced call - so do it outside this lock
         // if only to have only 1 lock in action at a time
         ExecutableNormalizedField currentNormalisedField = normalizedFieldSupplier.get();
@@ -215,17 +222,22 @@ public class DataFetchingFieldSelectionSetImpl implements DataFetchingFieldSelec
             if (computedValues) {
                 return;
             }
+
+            if (computedImmediateValues && immediate) {
+                return;
+            }
+
             flattenedFieldsForGlobSearching = new LinkedHashSet<>();
             normalisedSelectionSetFields = new LinkedHashMap<>();
             ImmutableList.Builder<SelectedField> immediateFieldsBuilder = ImmutableList.builder();
-            traverseSubSelectedFields(currentNormalisedField, immediateFieldsBuilder, "", "", true);
+            traverseSubSelectedFields(currentNormalisedField, immediateFieldsBuilder, "", "", true, immediate);
             immediateFields = immediateFieldsBuilder.build();
-            computedValues = true;
+            computedImmediateValues = true;
+            computedValues = !immediate;
         }
     }
 
-
-    private void traverseSubSelectedFields(ExecutableNormalizedField currentNormalisedField, ImmutableList.Builder<SelectedField> immediateFieldsBuilder, String qualifiedFieldPrefix, String simpleFieldPrefix, boolean firstLevel) {
+    private void traverseSubSelectedFields(ExecutableNormalizedField currentNormalisedField, ImmutableList.Builder<SelectedField> immediateFieldsBuilder, String qualifiedFieldPrefix, String simpleFieldPrefix, boolean firstLevel, boolean immediate) {
         List<ExecutableNormalizedField> children = currentNormalisedField.getChildren();
         for (ExecutableNormalizedField normalizedSubSelectedField : children) {
             String typeQualifiedName = mkTypeQualifiedName(normalizedSubSelectedField);
@@ -245,8 +257,8 @@ public class DataFetchingFieldSelectionSetImpl implements DataFetchingFieldSelec
             normalisedSelectionSetFields.computeIfAbsent(globQualifiedName, newList()).add(selectedField);
             normalisedSelectionSetFields.computeIfAbsent(globSimpleName, newList()).add(selectedField);
 
-            if (normalizedSubSelectedField.hasChildren()) {
-                traverseSubSelectedFields(normalizedSubSelectedField, immediateFieldsBuilder, globQualifiedName, globSimpleName, false);
+            if (normalizedSubSelectedField.hasChildren() && !immediate) {
+                traverseSubSelectedFields(normalizedSubSelectedField, immediateFieldsBuilder, globQualifiedName, globSimpleName, false, false);
             }
         }
     }
