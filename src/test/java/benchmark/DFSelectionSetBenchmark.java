@@ -88,9 +88,39 @@ public class DFSelectionSetBenchmark {
         blackhole.consume(fields);
     }
 
+    @Benchmark
+    @Warmup(iterations = 2)
+    @Measurement(iterations = 5, time = 10)
+    @Threads(1)
+    @Fork(3)
+    @BenchmarkMode(Mode.AverageTime)
+    @OutputTimeUnit(TimeUnit.MILLISECONDS)
+    public void benchMarkAvgTime_getImmediateFields(MyState myState, Blackhole blackhole) {
+        List<SelectedField> fields = getImmediateFields(myState);
+        blackhole.consume(fields);
+    }
+
+    @Benchmark
+    @Warmup(iterations = 2)
+    @Measurement(iterations = 5, time = 10)
+    @Threads(1)
+    @Fork(3)
+    @BenchmarkMode(Mode.Throughput)
+    @OutputTimeUnit(TimeUnit.MILLISECONDS)
+    public void benchMarkThroughput_getImmediateFields(MyState myState, Blackhole blackhole) {
+        List<SelectedField> fields = getImmediateFields(myState);
+        blackhole.consume(fields);
+    }
+
+
     private List<SelectedField> getSelectedFields(MyState myState) {
         DataFetchingFieldSelectionSet dataFetchingFieldSelectionSet = DataFetchingFieldSelectionSetImpl.newCollector(myState.schema, myState.outputFieldType, () -> myState.normalisedField);
         return dataFetchingFieldSelectionSet.getFields("wontBeFound");
+    }
+
+    private List<SelectedField> getImmediateFields(MyState myState) {
+        DataFetchingFieldSelectionSet dataFetchingFieldSelectionSet = DataFetchingFieldSelectionSetImpl.newCollector(myState.schema, myState.outputFieldType, () -> myState.normalisedField);
+        return dataFetchingFieldSelectionSet.getImmediateFields();
     }
 
     public static void mainX(String[] args) throws InterruptedException {
