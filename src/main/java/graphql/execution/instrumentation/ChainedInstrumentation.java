@@ -9,19 +9,14 @@ import graphql.PublicApi;
 import graphql.execution.Async;
 import graphql.execution.ExecutionContext;
 import graphql.execution.FieldValueInfo;
-import graphql.execution.instrumentation.parameters.InstrumentationCreateStateParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldCompleteParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldFetchParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationValidationParameters;
+import graphql.execution.instrumentation.parameters.*;
 import graphql.language.Document;
+import graphql.normalized.ExecutableNormalizedOperation;
 import graphql.schema.DataFetcher;
 import graphql.schema.GraphQLSchema;
 import graphql.validation.ValidationError;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
@@ -113,6 +108,14 @@ public class ChainedInstrumentation implements Instrumentation {
         return chainedCtx(instrumentation -> {
             InstrumentationState specificState = getSpecificState(instrumentation, state);
             return instrumentation.beginParse(parameters, specificState);
+        });
+    }
+
+    @Override
+    public @Nullable InstrumentationContext<ExecutableNormalizedOperation> beginParseExecutableNormalizedOperation(InstrumentationParseExecutableNormalizedOperation parameters, InstrumentationState state) {
+        return chainedCtx(instrumentation -> {
+            InstrumentationState specificState = getSpecificState(instrumentation, state);
+            return instrumentation.beginParseExecutableNormalizedOperation(parameters, specificState);
         });
     }
 
