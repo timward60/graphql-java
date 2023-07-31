@@ -3,6 +3,7 @@ package graphql.normalized;
 import graphql.Assert;
 import graphql.GraphQLContext;
 import graphql.Internal;
+import graphql.execution.CoercedVariables;
 import graphql.language.FragmentDefinition;
 import graphql.schema.GraphQLSchema;
 import org.jetbrains.annotations.NotNull;
@@ -19,6 +20,7 @@ public class FieldCollectorNormalizedQueryParams {
     private final GraphQLSchema graphQLSchema;
     private final Map<String, FragmentDefinition> fragmentsByName;
     private final Map<String, Object> coercedVariableValues;
+    private final CoercedVariables coercedVariables;
     private final Map<String, NormalizedInputValue> normalizedVariableValues;
     private final GraphQLContext graphQLContext;
     private final Locale locale;
@@ -56,6 +58,11 @@ public class FieldCollectorNormalizedQueryParams {
         return coercedVariableValues;
     }
 
+    @NotNull
+    public CoercedVariables getCoercedVariables() {
+        return coercedVariables;
+    }
+
     @Nullable
     public Map<String, NormalizedInputValue> getNormalizedVariableValues() {
         return normalizedVariableValues;
@@ -73,6 +80,7 @@ public class FieldCollectorNormalizedQueryParams {
         this.fragmentsByName = builder.fragmentsByName;
         this.graphQLSchema = builder.graphQLSchema;
         this.coercedVariableValues = builder.coercedVariableValues;
+        this.coercedVariables = CoercedVariables.of(builder.coercedVariableValues);
         this.normalizedVariableValues = builder.normalizedVariableValues;
         this.graphQLContext = builder.graphQLContext;
         this.locale = builder.locale;

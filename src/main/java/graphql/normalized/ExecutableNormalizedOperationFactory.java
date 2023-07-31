@@ -538,7 +538,7 @@ public class ExecutableNormalizedOperationFactory {
         String fieldName = field.getName();
         GraphQLFieldDefinition fieldDefinition = Introspection.getFieldDef(parameters.getGraphQLSchema(), objectTypes.iterator().next(), fieldName);
 
-        Map<String, Object> argumentValues = ValuesResolver.getArgumentValues(fieldDefinition.getArguments(), field.getArguments(), CoercedVariables.of(parameters.getCoercedVariableValues()), parameters.getGraphQLContext(), parameters.getLocale());
+        Map<String, Object> argumentValues = ValuesResolver.getArgumentValues(fieldDefinition.getArguments(), field.getArguments(), parameters.getCoercedVariables(), parameters.getGraphQLContext(), parameters.getLocale());
         Map<String, NormalizedInputValue> normalizedArgumentValues = null;
         if (parameters.getNormalizedVariableValues() != null) {
             normalizedArgumentValues = ValuesResolver.getNormalizedArgumentValues(fieldDefinition.getArguments(), field.getArguments(), parameters.getNormalizedVariableValues());
