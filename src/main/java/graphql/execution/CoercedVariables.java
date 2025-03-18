@@ -38,6 +38,11 @@ public class CoercedVariables {
         return new CoercedVariables(coercedVariables);
     }
 
+    public static CoercedVariables of(CoercedVariables coercedVariables) {
+        // The underlying implementation is immutable, so we can just return the same instance.
+        return coercedVariables;
+    }
+
     @Override
     public String toString() {
         return coercedVariables.toString();
