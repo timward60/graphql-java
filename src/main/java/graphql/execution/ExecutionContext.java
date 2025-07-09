@@ -18,8 +18,10 @@ import graphql.execution.instrumentation.parameters.InstrumentationCreateNormali
 import graphql.language.Document;
 import graphql.language.FragmentDefinition;
 import graphql.language.OperationDefinition;
-import graphql.normalized.ExecutableNormalizedOperation;
 import graphql.normalized.ExecutableNormalizedOperationFactory;
+import graphql.normalized.GraphQlNormalizedOperation;
+import graphql.normalized.nf.NormalizedDocument;
+import graphql.normalized.nf.NormalizedDocumentFactory;
 import graphql.schema.GraphQLSchema;
 import graphql.util.FpKit;
 import graphql.util.LockKit;
@@ -66,7 +68,7 @@ public class ExecutionContext {
     private final ResponseMapFactory responseMapFactory;
 
     private final ExecutionInput executionInput;
-    private final Supplier<ExecutableNormalizedOperation> queryTree;
+    private final Supplier<GraphQlNormalizedOperation> queryTree;
     private final boolean propagateErrorsOnNonNullContractFailure;
 
     private final AtomicInteger isRunning = new AtomicInteger(0);
@@ -101,7 +103,7 @@ public class ExecutionContext {
         this.localContext = builder.localContext;
         this.executionInput = builder.executionInput;
         this.dataLoaderDispatcherStrategy = builder.dataLoaderDispatcherStrategy;
-        this.queryTree = FpKit.interThreadMemoize(this::createExecutableNormalizedOperation);
+        this.queryTree = FpKit.interThreadMemoize(this::createNormalizedOperation);
         this.propagateErrorsOnNonNullContractFailure = builder.propagateErrorsOnNonNullContractFailure;
         this.engineRunningState = builder.engineRunningState;
     }
@@ -337,7 +339,7 @@ public class ExecutionContext {
         }
     }
 
-    public Supplier<ExecutableNormalizedOperation> getNormalizedQueryTree() {
+    public Supplier<GraphQlNormalizedOperation> getNormalizedQueryTree() {
         return queryTree;
     }
 
@@ -369,20 +371,50 @@ public class ExecutionContext {
         return resultNodesInfo;
     }
 
-    private ExecutableNormalizedOperation createExecutableNormalizedOperation() {
+    private GraphQlNormalizedOperation createNormalizedOperation() {
         var parameters = new InstrumentationCreateNormalizedOperationParameters(executionInput, graphQLSchema);
         var instrument = instrumentation.beginCreateNormalizedOperation(parameters, instrumentationState);
-        var result = ExecutableNormalizedOperationFactory.createExecutableNormalizedOperation(graphQLSchema, operationDefinition, fragmentsByName, coercedVariables);
+        GraphQlNormalizedOperation result;
+        if (hasNormalizedDocumentSupport()) {
+            var normalizedDocument = NormalizedDocumentFactory.createNormalizedDocument(graphQLSchema, document);
+            // Search the document for the operation that matches the operationDefinition name,
+            // if no match then it could be anonymous query, then fallback to the first operation.
+            var normalizedOperations = normalizedDocument.getNormalizedOperations();
+            result = normalizedOperations.stream()
+                    .filter(this::isExecutingOperation)
+                    .findAny()
+                    .map(NormalizedDocument.NormalizedOperationWithAssumedSkipIncludeVariables::getNormalizedOperation)
+                    .orElseGet(normalizedDocument::getSingleNormalizedOperation);
+        } else {
+            result = ExecutableNormalizedOperationFactory.createExecutableNormalizedOperation(graphQLSchema, operationDefinition, fragmentsByName, coercedVariables);
+        }
         if (instrument != null) {
             instrument.onCompleted(result, null);
         }
         return result;
     }
 
+    private boolean isExecutingOperation(NormalizedDocument.NormalizedOperationWithAssumedSkipIncludeVariables op) {
+        var operation = op.getNormalizedOperation();
+        var operationName = operation.getOperationName();
+        var operationDefinitionName = operationDefinition.getName();
+        if (operationName == null || operationDefinitionName == null) {
+            return false;
+        }
+
+        return operationName.equals(operationDefinitionName);
+    }
+
     @Internal
     public boolean hasIncrementalSupport() {
         GraphQLContext graphqlContext = getGraphQLContext();
         return graphqlContext != null && graphqlContext.getBoolean(ExperimentalApi.ENABLE_INCREMENTAL_SUPPORT);
+    }
+
+    @Internal
+    public boolean hasNormalizedDocumentSupport() {
+        GraphQLContext graphqlContext = getGraphQLContext();
+        return graphqlContext != null && graphqlContext.getBoolean(ExperimentalApi.ENABLE_NORMALIZED_DOCUMENT_SUPPORT);
     }
 
     @Internal

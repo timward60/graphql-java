@@ -177,4 +177,9 @@ public class ExecutableNormalizedOperation implements GraphQlNormalizedOperation
         }
         return Assert.assertShouldNeverHappen("normalized field not found");
     }
+
+    @Override
+    public GraphQlNormalizedField getGraphQlNormalizedField(MergedField mergedField, GraphQLFieldsContainer fieldsContainer, ResultPath resultPath) {
+        return getNormalizedField(mergedField, fieldsContainer, resultPath);
+    }
 }
