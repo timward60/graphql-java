@@ -5,6 +5,9 @@ import graphql.language.Document;
 import graphql.normalized.ExecutableNormalizedField;
 import graphql.normalized.ExecutableNormalizedOperation;
 import graphql.normalized.ExecutableNormalizedOperationFactory;
+import graphql.normalized.nf.NormalizedDocumentFactory;
+import graphql.normalized.nf.NormalizedField;
+import graphql.normalized.nf.NormalizedOperation;
 import graphql.parser.Parser;
 import graphql.schema.DataFetchingFieldSelectionSet;
 import graphql.schema.DataFetchingFieldSelectionSetImpl;
@@ -36,7 +39,7 @@ public class DFSelectionSetPerformance {
     @State(Scope.Benchmark)
     public static class MyState {
 
-        public ExecutableNormalizedField normalisedField;
+        public NormalizedField normalisedField;
         public GraphQLOutputType outputFieldType;
         GraphQLSchema schema;
         Document document;
@@ -50,9 +53,9 @@ public class DFSelectionSetPerformance {
                 String query = PerformanceTestingUtils.loadResource("large-schema-2-query.graphql");
                 document = Parser.parse(query);
 
-                ExecutableNormalizedOperation executableNormalizedOperation = ExecutableNormalizedOperationFactory.createExecutableNormalizedOperation(schema, document, null, CoercedVariables.emptyVariables());
+                NormalizedOperation executableNormalizedOperation = NormalizedDocumentFactory.createNormalizedDocument(schema, document).getSingleNormalizedOperation();
 
-                normalisedField = executableNormalizedOperation.getTopLevelFields().get(0);
+                normalisedField = executableNormalizedOperation.getRootFields().get(0);
 
                 outputFieldType = schema.getObjectType("Object42");
 

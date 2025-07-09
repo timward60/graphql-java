@@ -5,6 +5,9 @@ import graphql.Internal;
 import graphql.TypeResolutionEnvironment;
 import graphql.normalized.ExecutableNormalizedField;
 import graphql.normalized.ExecutableNormalizedOperation;
+import graphql.normalized.nf.NormalizedDocument;
+import graphql.normalized.nf.NormalizedField;
+import graphql.normalized.nf.NormalizedOperation;
 import graphql.schema.DataFetchingFieldSelectionSet;
 import graphql.schema.DataFetchingFieldSelectionSetImpl;
 import graphql.schema.GraphQLInterfaceType;
@@ -43,8 +46,9 @@ public class ResolveType {
     }
 
     private DataFetchingFieldSelectionSet buildSelectionSet(ExecutionContext executionContext, MergedField field, GraphQLOutputType fieldType, ExecutionStepInfo executionStepInfo) {
-        Supplier<ExecutableNormalizedOperation> normalizedQuery = executionContext.getNormalizedQueryTree();
-        Supplier<ExecutableNormalizedField> normalizedFieldSupplier = () -> normalizedQuery.get().getNormalizedField(field, executionStepInfo.getObjectType(), executionStepInfo.getPath());
+        // TODO: Get normalized operation for the current execution context
+        Supplier<NormalizedOperation> normalizedQuery = () -> executionContext.getNormalizedQueryTree().get().join().getSingleNormalizedOperation();
+        Supplier<NormalizedField> normalizedFieldSupplier = () -> normalizedQuery.get().getNormalizedField(field, executionStepInfo.getObjectType(), executionStepInfo.getPath());
         return DataFetchingFieldSelectionSetImpl.newCollector(executionContext.getGraphQLSchema(), fieldType, normalizedFieldSupplier);
     }
 

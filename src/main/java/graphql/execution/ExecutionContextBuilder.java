@@ -53,6 +53,7 @@ public class ExecutionContextBuilder {
     boolean propagateErrorsOnNonNullContractFailure = true;
     EngineRunningState engineRunningState;
     ResponseMapFactory responseMapFactory = ResponseMapFactory.DEFAULT;
+    PreparsedNormalizedDocumentProvider preparsedNormalizedDocumentProvider;
 
     /**
      * @return a new builder of {@link graphql.execution.ExecutionContext}s
@@ -102,6 +103,7 @@ public class ExecutionContextBuilder {
         propagateErrorsOnNonNullContractFailure = other.propagateErrorsOnNonNullContractFailure();
         engineRunningState = other.getEngineRunningState();
         responseMapFactory = other.getResponseMapFactory();
+        preparsedNormalizedDocumentProvider = other.getPreparsedNormalizedDocumentProvider();
     }
 
     public ExecutionContextBuilder instrumentation(Instrumentation instrumentation) {

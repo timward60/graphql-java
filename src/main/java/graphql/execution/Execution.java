@@ -17,6 +17,7 @@ import graphql.execution.instrumentation.InstrumentationState;
 import graphql.execution.instrumentation.dataloader.PerLevelDataLoaderDispatchStrategy;
 import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters;
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
+import graphql.execution.preparsed.PreparsedNormalizedDocumentProvider;
 import graphql.extensions.ExtensionsBuilder;
 import graphql.incremental.DelayedIncrementalPartialResult;
 import graphql.incremental.IncrementalExecutionResultImpl;
@@ -55,6 +56,7 @@ public class Execution {
     private final Instrumentation instrumentation;
     private final ValueUnboxer valueUnboxer;
     private final boolean doNotAutomaticallyDispatchDataLoader;
+    private final PreparsedNormalizedDocumentProvider preparsedNormalizedDocumentProvider;
 
 
     public Execution(ExecutionStrategy queryStrategy,
@@ -62,13 +64,15 @@ public class Execution {
                      ExecutionStrategy subscriptionStrategy,
                      Instrumentation instrumentation,
                      ValueUnboxer valueUnboxer,
-                     boolean doNotAutomaticallyDispatchDataLoader) {
+                     boolean doNotAutomaticallyDispatchDataLoader,
+                     PreparsedNormalizedDocumentProvider preparsedNormalizedDocumentProvider) {
         this.queryStrategy = queryStrategy != null ? queryStrategy : new AsyncExecutionStrategy();
         this.mutationStrategy = mutationStrategy != null ? mutationStrategy : new AsyncSerialExecutionStrategy();
         this.subscriptionStrategy = subscriptionStrategy != null ? subscriptionStrategy : new AsyncExecutionStrategy();
         this.instrumentation = instrumentation;
         this.valueUnboxer = valueUnboxer;
         this.doNotAutomaticallyDispatchDataLoader = doNotAutomaticallyDispatchDataLoader;
+        this.preparsedNormalizedDocumentProvider = preparsedNormalizedDocumentProvider;
     }
 
     public CompletableFuture<ExecutionResult> execute(Document document, GraphQLSchema graphQLSchema, ExecutionId executionId, ExecutionInput executionInput, InstrumentationState instrumentationState, EngineRunningState engineRunningState) {
@@ -121,6 +125,7 @@ public class Execution {
                 .executionInput(executionInput)
                 .propagapropagateErrorsOnNonNullContractFailureeErrors(propagateErrorsOnNonNullContractFailure)
                 .engineRunningState(engineRunningState)
+                .preparsedNormalizedDocumentProvider(preparsedNormalizedDocumentProvider)
                 .build();
 
         executionContext.getGraphQLContext().put(ResultNodesInfo.RESULT_NODES_INFO, executionContext.getResultNodesInfo());

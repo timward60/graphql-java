@@ -14,11 +14,15 @@ import graphql.collect.ImmutableKit;
 import graphql.execution.incremental.IncrementalCallState;
 import graphql.execution.instrumentation.Instrumentation;
 import graphql.execution.instrumentation.InstrumentationState;
+import graphql.execution.preparsed.PreparsedNormalizedDocumentEntry;
+import graphql.execution.preparsed.PreparsedNormalizedDocumentProvider;
 import graphql.language.Document;
 import graphql.language.FragmentDefinition;
 import graphql.language.OperationDefinition;
 import graphql.normalized.ExecutableNormalizedOperation;
 import graphql.normalized.ExecutableNormalizedOperationFactory;
+import graphql.normalized.nf.NormalizedDocument;
+import graphql.normalized.nf.NormalizedDocumentFactory;
 import graphql.schema.GraphQLSchema;
 import graphql.util.FpKit;
 import graphql.util.LockKit;
@@ -30,6 +34,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -65,8 +70,9 @@ public class ExecutionContext {
     private final ResponseMapFactory responseMapFactory;
 
     private final ExecutionInput executionInput;
-    private final Supplier<ExecutableNormalizedOperation> queryTree;
+    private final Supplier<CompletableFuture<NormalizedDocument>> queryTree;
     private final boolean propagateErrorsOnNonNullContractFailure;
+    private final PreparsedNormalizedDocumentProvider preparsedNormalizedDocumentProvider;
 
     private final AtomicInteger isRunning = new AtomicInteger(0);
 
@@ -100,9 +106,15 @@ public class ExecutionContext {
         this.localContext = builder.localContext;
         this.executionInput = builder.executionInput;
         this.dataLoaderDispatcherStrategy = builder.dataLoaderDispatcherStrategy;
-        this.queryTree = FpKit.interThreadMemoize(() -> ExecutableNormalizedOperationFactory.createExecutableNormalizedOperation(graphQLSchema, operationDefinition, fragmentsByName, coercedVariables));
+        this.queryTree = FpKit.interThreadMemoize(this::buildNormalizedDocument);
         this.propagateErrorsOnNonNullContractFailure = builder.propagateErrorsOnNonNullContractFailure;
         this.engineRunningState = builder.engineRunningState;
+        this.preparsedNormalizedDocumentProvider = builder.preparsedNormalizedDocumentProvider;
+    }
+
+    private CompletableFuture<NormalizedDocument> buildNormalizedDocument() {
+        return this.preparsedNormalizedDocumentProvider.getNormalizedDocument(() -> NormalizedDocumentFactory.createNormalizedDocument(graphQLSchema, document))
+                .thenApply(PreparsedNormalizedDocumentEntry::getDocument);
     }
 
     public ExecutionId getExecutionId() {
@@ -139,6 +151,10 @@ public class ExecutionContext {
 
     public CoercedVariables getCoercedVariables() {
         return coercedVariables;
+    }
+
+    public PreparsedNormalizedDocumentProvider getPreparsedNormalizedDocumentProvider() {
+        return preparsedNormalizedDocumentProvider;
     }
 
     /**
@@ -336,7 +352,7 @@ public class ExecutionContext {
         }
     }
 
-    public Supplier<ExecutableNormalizedOperation> getNormalizedQueryTree() {
+    public Supplier<CompletableFuture<NormalizedDocument>> getNormalizedQueryTree() {
         return queryTree;
     }
 

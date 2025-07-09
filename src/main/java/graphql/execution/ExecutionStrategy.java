@@ -29,6 +29,9 @@ import graphql.introspection.Introspection;
 import graphql.language.Field;
 import graphql.normalized.ExecutableNormalizedField;
 import graphql.normalized.ExecutableNormalizedOperation;
+import graphql.normalized.nf.NormalizedDocument;
+import graphql.normalized.nf.NormalizedField;
+import graphql.normalized.nf.NormalizedOperation;
 import graphql.schema.CoercingSerializeException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -420,7 +423,7 @@ public abstract class ExecutionStrategy {
 
             Supplier<Map<String, Object>> argumentValues = () -> executionStepInfo.get().getArguments();
 
-            Supplier<ExecutableNormalizedField> normalizedFieldSupplier = getNormalizedField(executionContext, parameters, executionStepInfo);
+            Supplier<NormalizedField> normalizedFieldSupplier = getNormalizedField(executionContext, parameters, executionStepInfo);
 
             // DataFetchingFieldSelectionSet and QueryDirectives is a supplier of sorts - eg a lazy pattern
             DataFetchingFieldSelectionSet fieldCollector = DataFetchingFieldSelectionSetImpl.newCollector(executionContext.getGraphQLSchema(), fieldDef.getType(), normalizedFieldSupplier);
@@ -515,9 +518,10 @@ public abstract class ExecutionStrategy {
         return fetchedValue;
     }
 
-    protected Supplier<ExecutableNormalizedField> getNormalizedField(ExecutionContext executionContext, ExecutionStrategyParameters parameters, Supplier<ExecutionStepInfo> executionStepInfo) {
-        Supplier<ExecutableNormalizedOperation> normalizedQuery = executionContext.getNormalizedQueryTree();
-        return () -> normalizedQuery.get().getNormalizedField(parameters.getField(), executionStepInfo.get().getObjectType(), executionStepInfo.get().getPath());
+    protected Supplier<NormalizedField> getNormalizedField(ExecutionContext executionContext, ExecutionStrategyParameters parameters, Supplier<ExecutionStepInfo> executionStepInfo) {
+        Supplier<CompletableFuture<NormalizedDocument>> normalizedQuery = executionContext.getNormalizedQueryTree();
+        // TODO: Fetch normalized operation for the current operation.
+        return () -> normalizedQuery.get().join().getSingleNormalizedOperation().getNormalizedField(parameters.getField(), executionStepInfo.get().getObjectType(), executionStepInfo.get().getPath());
     }
 
     protected FetchedValue unboxPossibleDataFetcherResult(ExecutionContext executionContext,

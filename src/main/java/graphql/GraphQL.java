@@ -21,9 +21,7 @@ import graphql.execution.instrumentation.SimplePerformantInstrumentation;
 import graphql.execution.instrumentation.parameters.InstrumentationCreateStateParameters;
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
 import graphql.execution.instrumentation.parameters.InstrumentationValidationParameters;
-import graphql.execution.preparsed.NoOpPreparsedDocumentProvider;
-import graphql.execution.preparsed.PreparsedDocumentEntry;
-import graphql.execution.preparsed.PreparsedDocumentProvider;
+import graphql.execution.preparsed.*;
 import graphql.language.Document;
 import graphql.schema.GraphQLSchema;
 import graphql.validation.ValidationError;
@@ -158,6 +156,7 @@ public class GraphQL {
     private final ExecutionIdProvider idProvider;
     private final Instrumentation instrumentation;
     private final PreparsedDocumentProvider preparsedDocumentProvider;
+    private final PreparsedNormalizedDocumentProvider preparsedNormalizedDocumentProvider;
     private final ValueUnboxer valueUnboxer;
     private final boolean doNotAutomaticallyDispatchDataLoader;
 
@@ -170,6 +169,7 @@ public class GraphQL {
         this.idProvider = assertNotNull(builder.idProvider, () -> "idProvider must be non null");
         this.instrumentation = assertNotNull(builder.instrumentation, () -> "instrumentation must not be null");
         this.preparsedDocumentProvider = assertNotNull(builder.preparsedDocumentProvider, () -> "preparsedDocumentProvider must be non null");
+        this.preparsedNormalizedDocumentProvider = assertNotNull(builder.preparsedNormalizedDocumentProvider, () -> "preparsedNormalizedDocumentProvider must be non null");
         this.valueUnboxer = assertNotNull(builder.valueUnboxer, () -> "valueUnboxer must not be null");
         this.doNotAutomaticallyDispatchDataLoader = builder.doNotAutomaticallyDispatchDataLoader;
     }
@@ -227,6 +227,10 @@ public class GraphQL {
         return preparsedDocumentProvider;
     }
 
+    public PreparsedNormalizedDocumentProvider getPreparsedNormalizedDocumentProvider() {
+        return preparsedNormalizedDocumentProvider;
+    }
+
     /**
      * @return the ValueUnboxer for this {@link GraphQL} instance
      */
@@ -261,7 +265,8 @@ public class GraphQL {
                 .subscriptionExecutionStrategy(this.subscriptionStrategy)
                 .executionIdProvider(Optional.ofNullable(this.idProvider).orElse(builder.idProvider))
                 .instrumentation(Optional.ofNullable(this.instrumentation).orElse(builder.instrumentation))
-                .preparsedDocumentProvider(Optional.ofNullable(this.preparsedDocumentProvider).orElse(builder.preparsedDocumentProvider));
+                .preparsedDocumentProvider(Optional.ofNullable(this.preparsedDocumentProvider).orElse(builder.preparsedDocumentProvider))
+                .preparsedNormalizedDocumentProvider(Optional.ofNullable(this.preparsedNormalizedDocumentProvider).orElse(builder.preparsedNormalizedDocumentProvider));
 
         builderConsumer.accept(builder);
 
@@ -278,6 +283,7 @@ public class GraphQL {
         private ExecutionIdProvider idProvider = DEFAULT_EXECUTION_ID_PROVIDER;
         private Instrumentation instrumentation = null; // deliberate default here
         private PreparsedDocumentProvider preparsedDocumentProvider = NoOpPreparsedDocumentProvider.INSTANCE;
+        private PreparsedNormalizedDocumentProvider preparsedNormalizedDocumentProvider = NoOpPreparsedNormalizedDocumentProvider.INSTANCE;
         private boolean doNotAutomaticallyDispatchDataLoader = false;
         private ValueUnboxer valueUnboxer = ValueUnboxer.DEFAULT;
 
@@ -325,6 +331,11 @@ public class GraphQL {
 
         public Builder preparsedDocumentProvider(PreparsedDocumentProvider preparsedDocumentProvider) {
             this.preparsedDocumentProvider = assertNotNull(preparsedDocumentProvider, () -> "PreparsedDocumentProvider must be non null");
+            return this;
+        }
+
+        public Builder preparsedNormalizedDocumentProvider(PreparsedNormalizedDocumentProvider preparsedNormalizedDocumentProvider) {
+            this.preparsedNormalizedDocumentProvider = assertNotNull(preparsedNormalizedDocumentProvider, () -> "PreparsedNormalizedDocumentProvider must be non null");
             return this;
         }
 
@@ -542,7 +553,7 @@ public class GraphQL {
                 return CompletableFuture.completedFuture(new ExecutionResultImpl(preparsedDocumentEntry.getErrors()));
             }
             try {
-                return execute(executionInputRef.get(), preparsedDocumentEntry.getDocument(), graphQLSchema, instrumentationState, engineRunningState);
+                return execute(executionInputRef.get(), preparsedDocumentEntry.getDocument(), graphQLSchema, instrumentationState, engineRunningState, preparsedNormalizedDocumentProvider);
             } catch (AbortExecutionException e) {
                 return CompletableFuture.completedFuture(e.toExecutionResult());
             }
@@ -606,10 +617,11 @@ public class GraphQL {
                                                        Document document,
                                                        GraphQLSchema graphQLSchema,
                                                        InstrumentationState instrumentationState,
-                                                       EngineRunningState engineRunningState
+                                                       EngineRunningState engineRunningState,
+                                                       PreparsedNormalizedDocumentProvider preparsedNormalizedDocumentProvider
     ) {
 
-        Execution execution = new Execution(queryStrategy, mutationStrategy, subscriptionStrategy, instrumentation, valueUnboxer, doNotAutomaticallyDispatchDataLoader);
+        Execution execution = new Execution(queryStrategy, mutationStrategy, subscriptionStrategy, instrumentation, valueUnboxer, doNotAutomaticallyDispatchDataLoader, preparsedNormalizedDocumentProvider);
         ExecutionId executionId = executionInput.getExecutionId();
 
         return execution.execute(document, graphQLSchema, executionId, executionInput, instrumentationState, engineRunningState);
