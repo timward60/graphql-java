@@ -45,6 +45,21 @@ class ExecutionInputTest extends Specification {
         executionInput.query == query
         executionInput.locale == Locale.GERMAN
         executionInput.extensions == [some: "map"]
+        executionInput.toString() != null
+    }
+
+    def "build without locale"() {
+        when:
+        def executionInput = ExecutionInput.newExecutionInput().query(query)
+                .dataLoaderRegistry(registry)
+                .variables(variables)
+                .root(root)
+                .graphQLContext({ it.of(["a": "b"]) })
+                .locale(null)
+                .extensions([some: "map"])
+                .build()
+        then:
+        executionInput.locale == Locale.getDefault()
     }
 
     def "map context build works"() {
@@ -312,6 +327,33 @@ class ExecutionInputTest extends Specification {
         "200 ms"  | plusOrMinus(200)
         "500 ms"  | plusOrMinus(500)
         "1000 ms" | plusOrMinus(1000)
+    }
+
+    def "uses persisted query marker when query is null"() {
+        when:
+        ExecutionInput.newExecutionInput().query(null).build()
+        then:
+        thrown(AssertException)
+    }
+
+    def "uses persisted query marker when query is null and extensions contains persistedQuery"() {
+        when:
+        def executionInput = ExecutionInput.newExecutionInput()
+                .extensions([persistedQuery: "any"])
+                .query(null)
+                .build()
+        then:
+        executionInput.query == PersistedQuerySupport.PERSISTED_QUERY_MARKER
+    }
+
+    def "uses persisted query marker when query is empty and extensions contains persistedQuery"() {
+        when:
+        def executionInput = ExecutionInput.newExecutionInput()
+                .extensions([persistedQuery: "any"])
+                .query("")
+                .build()
+        then:
+        executionInput.query == PersistedQuerySupport.PERSISTED_QUERY_MARKER
     }
 
     def "can cancel at specific places"() {
